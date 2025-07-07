@@ -9,9 +9,10 @@ import java.util.List;
 public class NodeAvoidanceUtil {
     public static List<Node> computeNodesToAvoid(GameMap gameMap) {
         List<Node> nodes = new ArrayList<>(gameMap.getListIndestructibles());
-        nodes.removeAll(gameMap.getObstaclesByTag("CAN_GO_THROUGH"));
-        nodes.addAll(gameMap.getOtherPlayerInfo());
+//        nodes.addAll(gameMap.getListTraps());
         nodes.addAll(gameMap.getObstaclesByTag("TRAP"));
+        nodes.addAll(gameMap.getOtherPlayerInfo());
+        nodes.addAll(gameMap.getListEnemies());
         return nodes;
     }
 }
