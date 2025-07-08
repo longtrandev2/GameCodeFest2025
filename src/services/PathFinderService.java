@@ -66,6 +66,7 @@ public class PathFinderService {
     }
 
 
+
     public static Weapon getNearestWeapon(GameMap gameMap, Player player) {
         List<Weapon> weapons = gameMap.getListWeapons();
         Weapon nearestWeapon = null;
@@ -73,7 +74,7 @@ public class PathFinderService {
 
         for (Weapon weapon : weapons) {
             if(weapon.getType().name() != ElementType.GUN.name()) {
-                double distance = PathUtils.distance(player, weapon);
+                double distance = distance(player, weapon);
                 if (distance < minDistance && PathUtils.checkInsideSafeArea(weapon.getPosition(), gameMap.getSafeZone(), gameMap.getMapSize())) {
                     minDistance = distance;
                     nearestWeapon = weapon;
@@ -89,7 +90,7 @@ public class PathFinderService {
         double minDistance = Double.MAX_VALUE;
 
         for (SupportItem SupportItem : SupportItems) {
-            double distance = PathUtils.distance(player, SupportItem);
+            double distance = distance(player, SupportItem);
             if (distance < minDistance) {
                 minDistance = distance;
                 nearestSupportItem = SupportItem;
@@ -104,7 +105,7 @@ public class PathFinderService {
         double minDistance = Double.MAX_VALUE;
 
         for (Weapon gun : guns) {
-            double distance = PathUtils.distance(player, gun);
+            double distance = distance(player, gun);
             if (distance < minDistance && PathUtils.checkInsideSafeArea(gun.getPosition(), gameMap.getSafeZone(), gameMap.getMapSize())) {
                 minDistance = distance;
                 nearestGun = gun;
@@ -119,7 +120,7 @@ public class PathFinderService {
         double minDistance = Double.MAX_VALUE;
         System.out.println(chests);
         for (Obstacle chest : chests) {
-            double distance = PathUtils.distance(player, chest);
+            double distance = distance(player, chest);
             if (distance < minDistance && PathUtils.checkInsideSafeArea(chest.getPosition(), gameMap.getSafeZone(), gameMap.getMapSize())) {
                 minDistance = distance;
                 nearestChest = chest;
@@ -216,6 +217,55 @@ public class PathFinderService {
         if(supportItem != null)
             return distance(player, getNearestSupportItem(gameMap, player));
         else return Integer.MAX_VALUE;
+    }
+
+    public static String optimizeShortestPath(String path) {
+        if (checkSingleDirection(path)) return path;
+        boolean hasU = false, hasD = false, hasL = false, hasR = false;
+        for(int i = 0; i < path.length(); i++) {
+            if(path.charAt(i) == 'u') hasU = true;
+            if(path.charAt(i) == 'd') hasD = true;
+            if(path.charAt(i) == 'l') hasL = true;
+            if(path.charAt(i) == 'r') hasR = true;
+        }
+        if(hasU && hasD) return path;
+        if(hasL && hasR) return path;
+        int ngang = 0, doc = 0;
+        char ngangChar = 'l', docChar = 'u';
+        for(int i = 0; i < path.length(); i++) {
+            if(path.charAt(i) == 'u' || path.charAt(i) == 'd') {
+                doc++;
+                docChar = path.charAt(i);
+            }
+            if(path.charAt(i) == 'l' || path.charAt(i) == 'r') {
+                ngang++;
+                ngangChar = path.charAt(i);
+            }
+        }
+        String result = "";
+        StringBuilder sb = new StringBuilder(result);
+        boolean minSideIsNgang = ngang <= doc;
+        for(int i = 0; i < Math.min(ngang,doc); i++) {
+            if(minSideIsNgang) sb.append(ngangChar);
+            else sb.append(docChar);
+        }
+        for(int i = 0; i < Math.max(ngang,doc); i++) {
+            if(minSideIsNgang) sb.append(docChar);
+            else sb.append(ngangChar);
+        }
+        String res = sb.toString();
+        System.out.println("Path before optimize: " + path + "\n" + "Path after optimized: " + res);
+        return res;
+    }
+
+
+    public static boolean checkSingleDirection(String path) {
+        for(int i = 0; i < path.length() - 1; i++) {
+            if(path.charAt(i) != path.charAt(i+1)) {
+                return false;
+            }
+        }
+        return true;
     }
 }
 

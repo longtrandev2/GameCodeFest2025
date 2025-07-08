@@ -44,7 +44,32 @@ public class GameActionHandler {
     private float countEnemyAction_toPlayer = 0;
     // end
 
-//    private int coolDownReamin = 0;
+    // Counter cooldown
+    private static double cooldownTimer_gun = 0;
+    private static double cooldownTimer_melee = 0;
+    private static double counter_cooldown_gun = 0;
+    private static double counter_cooldown_melee = 0;
+    private String status_attacked;
+    private boolean canShoot;
+    private boolean canAttack;
+
+    private static double coolDownSpecialReamin = 0;
+
+    private static Boolean usedSpecialItems = false;
+    //end
+
+    public enum TaskType {
+        GUN,
+        CHEST,
+        ENEMY,
+        ARMOR,
+        HELMET,
+        SUPPORT_ITEM,
+        RUN,
+        WEAPON,
+        MOVE
+    }
+
     public GameActionHandler(Hero hero) {
         this.hero = hero;
     }
@@ -77,6 +102,9 @@ public class GameActionHandler {
             hero.move(path);
             return;
         }
+
+
+        // Xử lý action
         if (inventory.getGun() == null && PathFinderService.findPathToNearestGun(gameMap, player,avoid) != null) {
             searchForGun(gameMap, player, avoid);
         } else {
@@ -90,43 +118,50 @@ public class GameActionHandler {
                     break;
                 }
             }
-            String action = selectTask(gameMap, player, avoid, hero, hasEnemy);
+            TaskType action = selectTask(gameMap, player, avoid, hero, hasEnemy);
 
-            System.out.println("ACTION HERE: " + action);
-            if (action.equals("CHEST")) {
+            System.out.println("ACTION HERE: " + action.name());
+            if (action == TaskType.CHEST) {
                 searchForChestAndLoot(gameMap, player, avoid);
             }
-            if (action.equals("ENEMY")) {
-                searchForEnemy_v2(gameMap, player, avoid);
+            else if (action == TaskType.ENEMY) {
+                if(player.getHealth() > 20) searchForEnemy_v2(gameMap, player, avoid);
+                else avoidOtherPlayer_v1(gameMap, player, avoid);
             }
-            if (action.equals("ARMOR")) {
+            else if (action == TaskType.ARMOR) {
                 searchForArmorOrHelmet(gameMap, player, avoid);
             }
-            if (action.equals("WEAPON")) {
+            else if (action == TaskType.WEAPON) {
                 searchForWeapon(gameMap, player, avoid);
             }
-            if (action.equals("SUPPORT_ITEM") ) {
+            else if (action == TaskType.SUPPORT_ITEM) {
                 searchForSupportItem(gameMap, player, avoid);
             }
+            else if (action == TaskType.GUN) {
+                searchForGun(gameMap, player, avoid);
+            }
         }
+        if(usedSpecialItems && coolDownSpecialReamin >= 1 ) {
+            coolDownSpecialReamin -= 1;
+        } else usedSpecialItems = false;
     }
 
-    private String selectTask(GameMap gameMap, Player player, List<Node> avoid, Hero hero, Boolean hasEnemy) {
-//        int distanceToNearestGun = PathFinderService.getDistanceToNearestGun(gameMap, player);
+    private TaskType selectTask(GameMap gameMap, Player player, List<Node> avoid, Hero hero, Boolean hasEnemy) {
+        int distanceToNearestGun = PathFinderService.getDistanceToNearestGun(gameMap, player);
         int distanceToNearestChest = PathFinderService.getDistanceToNearestChest(gameMap, player);
         int distanceToNearestArmor = PathFinderService.getDistanceToNearestArmor(gameMap, player);
         int distanceToNearestEnemy = PathFinderService.getDistanceToNearestOtherPlayer(gameMap, player);
         int distanceToNearestWeapon = PathFinderService.getDistanceToNearestWeapon(gameMap, player);
         int distanceToSupportItem = PathFinderService.getDistanceToSupportItem(gameMap,player);
 
-//        PriorityTask gunTask = new PriorityTask("GUN", 5, distanceToNearestGun);
-        PriorityTask enemyTask = new PriorityTask("ENEMY", 10, distanceToNearestEnemy);
-        PriorityTask armorTask = new PriorityTask("ARMOR", 4, distanceToNearestArmor);
-        PriorityTask chestTask = new PriorityTask("CHEST", 4, distanceToNearestChest);
-        PriorityTask weaponTask = new PriorityTask("WEAPON", 4, distanceToNearestWeapon);
-        PriorityTask supportItemTask = new PriorityTask("SUPPORT_ITEM", 4, distanceToSupportItem);
+        PriorityTask gunTask = new PriorityTask(TaskType.GUN, 5, distanceToNearestGun);
+        PriorityTask enemyTask = new PriorityTask(TaskType.ENEMY, 10, distanceToNearestEnemy);
+        PriorityTask armorTask = new PriorityTask(TaskType.ARMOR, 4, distanceToNearestArmor);
+        PriorityTask chestTask = new PriorityTask(TaskType.HELMET, 4, distanceToNearestChest);
+        PriorityTask weaponTask = new PriorityTask(TaskType.WEAPON, 4, distanceToNearestWeapon);
+        PriorityTask supportItemTask = new PriorityTask(TaskType.SUPPORT_ITEM, 4, distanceToSupportItem);
         List<PriorityTask> tasks = new ArrayList<>();
-//        tasks.add(gunTask);
+        tasks.add(gunTask);
         tasks.add(chestTask);
         tasks.add(armorTask);
         tasks.add(weaponTask);
@@ -141,9 +176,9 @@ public class GameActionHandler {
                 return o1.distanceToPlayer - o2.distanceToPlayer;
             }
         });
-        System.out.println("HEHE LOG HERE");
+        System.out.println("TASK LIST AFTER SORT:");
         for(PriorityTask p : tasks) {
-            System.out.println(p.name);
+            System.out.println(p.name.name());
         }
         Inventory inventory = hero.getInventory();
         // Có súng và có địch -> ưu tiên cao nhất
@@ -162,7 +197,7 @@ public class GameActionHandler {
         {
             return;
         }
-        if (path.isEmpty()) hero.pickupItem();
+        if (path.isEmpty()) swapItem(gameMap, player, hero);
         else hero.move(path);
     }
 
@@ -178,13 +213,8 @@ public class GameActionHandler {
         }
     }
 
-    private boolean checkSingleDirection(String path) {
-        for(int i = 0; i < path.length() - 1; i++) {
-            if(path.charAt(i) != path.charAt(i+1)) {
-                return false;
-            }
-        }
-        return true;
+    public boolean checkSingleDirection(String path) {
+        return PathFinderService.checkSingleDirection(path);
     }
 
     private void searchForEnemy(GameMap gameMap, Player player, List<Node> avoid) throws IOException {
@@ -195,7 +225,7 @@ public class GameActionHandler {
 
         if(hero.getInventory().getThrowable() != null && hero.getInventory().getThrowable().getRange()[1] == distanceToEnemy && checkSingleDirection(path)) {
             hero.throwItem(direction);
-        } else  if(hero.getInventory().getGun() != null && hero.getInventory().getGun().getRange()[1] >=  distanceToEnemy && checkSingleDirection(path))
+            } else  if(hero.getInventory().getGun() != null && hero.getInventory().getGun().getRange()[1] >=  distanceToEnemy && checkSingleDirection(path))
             hero.shoot(direction);
             else if(distanceToEnemy == 1)
                 hero.attack(direction);
@@ -212,9 +242,14 @@ public class GameActionHandler {
 //            weapon = (Weapon) element;
 //        }
         Inventory inventory = hero.getInventory();
+
         if (type.name().equals(ElementType.MELEE.name()) && !inventory.getMelee().getId().equals("HAND")) {
             System.out.println("DROP MELEE");
             hero.revokeItem(inventory.getMelee().getId());
+        }
+        if (type.name().equals(ElementType.GUN.name()) && inventory.getGun() != null ) {
+            System.out.println("DROP GUN");
+            hero.revokeItem(inventory.getGun().getId());
         }
         else if (type.name().equals(ElementType.THROWABLE.name()) && inventory.getThrowable() != null) {
             hero.revokeItem(inventory.getThrowable().getId());
@@ -364,22 +399,38 @@ public class GameActionHandler {
         else{
             directionNext = pathNext.charAt(pathNext.length()-1) + "";
         }
-        if(hero.getInventory().getSpecial() != null && hero.getInventory().getSpecial().getId() == "BELL" && distanceToEnemy <= 5)
-            hero.useSpecial(direction);
-//        else if(hero.getInventory().getSpecial() != null && hero.getInventory().getSpecial().getId() == "ROPE" && coolDownReamin == 0f && distanceToEnemy <=6 && checkSingleDirection(direction))
-//            hero.useSpecial(direction);
-//        else if(hero.getInventory().getSpecial() != null && hero.getInventory().getSpecial().getId() == "SAHUR_BAT" && hero.getInventory().getSpecial().getCooldown() == 0f && distanceToEnemy <= 5 && checkSingleDirection(direction))
-//            hero.useSpecial(direction);
+        if(hero.getInventory().getSpecial() != null){
+            Weapon speacialItem = hero.getInventory().getSpecial();
+            if(coolDownSpecialReamin == 0f){
+                if(checkSingleDirection(direction)){
+                    if((speacialItem.getId().equals("ROPE") && distanceToEnemy <=6) || (speacialItem.getId().equals("SAHUR_BAT") && distanceToEnemy <= 5) ||(speacialItem.getId().equals("BELL") && distanceToEnemy <= 7 ) ){
+                        coolDownSpecialReamin =  speacialItem.getCooldown();
+                        usedSpecialItems = true;
+
+                        hero.useSpecial(direction);
+                    }
+                }
+            }
+
+        }
         else if((hero.getInventory().getThrowable() != null ) && checkDirectionThrow(gameMap, player, avoid,  hero.getInventory().getThrowable())){
             hero.throwItem(direction);
         } else if((hero.getInventory().getGun() != null && hero.getInventory().getGun().getRange()[1] >= distanceToEnemy && checkSingleDirection(path)))
             hero.shoot(direction);
         else if((distanceToEnemy == hero.getInventory().getMelee().getRange()[1]))
             hero.attack(direction);
-//        else if(hero.getInventory().getSpecial() != null && hero.getInventory().getSpecial().getId() == "ROPE" && hero.getInventory().getSpecial().getCooldown() == 0f && distanceToEnemy <=6 &&  checkSingleDirection(direction) )
-//            hero.useSpecial(directionNext);
-//        else if(hero.getInventory().getSpecial() != null && hero.getInventory().getSpecial().getId() == "SAHUR_BAT" && hero.getInventory().getSpecial().getCooldown() == 0f && distanceToEnemy <= 6 && checkSingleDirection(direction))
-//            hero.useSpecial(directionNext);
+        if(hero.getInventory().getSpecial() != null){
+            Weapon speacialItem = hero.getInventory().getSpecial();
+            if(coolDownSpecialReamin == 0f){
+                if(checkSingleDirection(direction)){
+                    if((speacialItem.getId().equals("ROPE") && distanceToEnemy <=6) || (speacialItem.getId().equals("SAHUR_BAT") && distanceToEnemy <= 5) ||(speacialItem.getId().equals("BELL") && distanceToEnemy <= 7 ) ){
+                        coolDownSpecialReamin =  speacialItem.getCooldown();
+                        usedSpecialItems = true;
+                        hero.useSpecial(direction);
+                    }
+                }
+            }
+        }
         else if(hero.getInventory().getThrowable() != null  && checkDirectionThrow(gameMap, player, avoid, hero.getInventory().getThrowable())) {
             hero.throwItem(directionNext);
         }
@@ -445,8 +496,8 @@ public class GameActionHandler {
 //                    countEnemyAction_toGun++;
                     countEnemyAction_toGun += ((float) 1 /enemy_pathToGun.length());
                 } else {
-//                    countEnemyAction_toGun = 0;
-                    countEnemyAction_toGun -= 1;
+                    if(countEnemyAction_toGun <= 3) countEnemyAction_toGun = 0;
+                    else countEnemyAction_toGun -= 1;
                 }
             }
             System.out.println("Enemy path to gun: " + enemy_pathToGun + " | Count: " + countEnemyAction_toGun);
@@ -458,8 +509,8 @@ public class GameActionHandler {
 //                    countEnemyAction_toWeapon++;
                     countEnemyAction_toWeapon += ((float) 1 / enemy_pathToWeapon.length());
                 } else {
-//                    countEnemyAction_toWeapon = 0;
-                    countEnemyAction_toWeapon -= 1;
+                    if(countEnemyAction_toWeapon <= 3) countEnemyAction_toWeapon = 0;
+                    else countEnemyAction_toWeapon -= 1;
                 }
             }
             System.out.println("Enemy path to weapon: " + enemy_pathToWeapon + " | Count: " + countEnemyAction_toWeapon);
@@ -470,8 +521,8 @@ public class GameActionHandler {
 //                    countEnemyAction_toSupportItem++;
                     countEnemyAction_toSupportItem += ((float) 1 / enemy_pathToSupportItem.length());
                 } else {
-//                    countEnemyAction_toSupportItem = 0;
-                    countEnemyAction_toSupportItem -= 1;
+                    if(countEnemyAction_toSupportItem <= 3) countEnemyAction_toSupportItem = 0;
+                    else countEnemyAction_toSupportItem -= 1;
                 }
             }
             System.out.println("Enemy path to support item: " + enemy_pathToSupportItem + " | Count: " + countEnemyAction_toSupportItem);
@@ -483,8 +534,8 @@ public class GameActionHandler {
 //                    countEnemyAction_toChest++;
                     countEnemyAction_toChest += ((float) 1 / enemy_pathToChest.length());
                 } else {
-//                    countEnemyAction_toChest = 0;
-                    countEnemyAction_toChest -= 1;
+                    if(countEnemyAction_toChest <= 3) countEnemyAction_toChest = 0;
+                    else countEnemyAction_toChest -= 1;
                 }
             }
             System.out.println("Enemy path to chest: " + enemy_pathToChest + " | Count: " + countEnemyAction_toChest);
@@ -496,8 +547,8 @@ public class GameActionHandler {
 //                    countEnemyAction_toArmor++;
                     countEnemyAction_toArmor += ((float) 1 / enemy_pathToArmor.length());
                 } else {
-//                    countEnemyAction_toArmor = 0;
-                    countEnemyAction_toArmor -= 1;
+                    if(countEnemyAction_toArmor <= 3) countEnemyAction_toArmor = 0;
+                    else countEnemyAction_toArmor -= 1;
                 }
             }
             System.out.println("Enemy path to armor: " + enemy_pathToArmor + " | Count: " + countEnemyAction_toArmor);
@@ -509,8 +560,8 @@ public class GameActionHandler {
 //                    countEnemyAction_toPlayer++;
                     countEnemyAction_toPlayer += ((float) 1 / enemy_pathToPlayer.length());
                 } else {
-//                    countEnemyAction_toPlayer = 0;
-                    countEnemyAction_toPlayer -= 1;
+                    if(countEnemyAction_toPlayer <= 3) countEnemyAction_toPlayer = 0;
+                    else countEnemyAction_toPlayer -= 1;
                 }
             }
             System.out.println("Enemy path to player: " + enemy_pathToPlayer + " | Count: " + countEnemyAction_toPlayer);
@@ -650,6 +701,89 @@ public class GameActionHandler {
         List<Player> p = gameMap.getOtherPlayerInfo();
         for(Player pl : p){
             mp.put(pl.getID(), pl.getPosition());
+        }
+    }
+
+    // Hàm tập trung né người + bo
+    public String reverseString(String s) {
+        return new StringBuilder(s).reverse().toString();
+    }
+    public void avoidOtherPlayer_v1(GameMap gameMap, Player player, List<Node> avoid) throws IOException {
+        boolean isInSafe = PathUtils.checkInsideSafeArea(player,  gameMap.getSafeZone(), gameMap.getMapSize());
+
+        String path = PathFinderService.findPathToNearestOtherPlayer(gameMap, player, avoid);
+        if (path == null || path.isEmpty()) return;
+        if(isInSafe){
+            String reversePath = reverseString(path);
+            hero.move(reversePath);
+        }
+        else{
+            int mapSize = gameMap.getMapSize();
+            int safeZone = gameMap.getSafeZone();
+            int centerX = mapSize / 2;
+            int centerY = mapSize / 2;
+
+            int dx = centerX - player.getX();
+            int dy = centerY - player.getY();
+
+            // Ưu tiên hướng theo khoảng cách lớn hơn (đi gần tâm bo hơn)
+            String moveDir = "r";
+            if (Math.abs(dx) >= Math.abs(dy)) {
+                moveDir = dx > 0 ? "r" : "l";
+            } else {
+                moveDir = dy > 0 ? "d" : "u";
+            }
+            hero.move(String.valueOf(moveDir));
+        }
+    }
+
+
+
+    public void Attacking(GameMap gameMap, Player player, List<Node> avoid) throws IOException {
+        String path = PathFinderService.findPathToNearestOtherPlayer(gameMap, player, avoid);
+        String direction = path.charAt(path.length()-1) + "";
+        int distance = path.length();
+        if(status_attacked.equals("shoot")){
+            if(cooldownTimer_gun == 0) cooldownTimer_gun = hero.getInventory().getGun().getCooldown();
+
+            if(hero.getInventory().getMelee() == null) return;
+
+            if(distance <= 1){
+                hero.attack(direction);
+            }
+            else if(distance <= 3){
+                hero.move(direction);
+            }
+            else{
+                if(direction.equals("d") || direction.equals("u")){
+                    hero.move("r");
+                }
+                else{
+                    hero.move("u");
+                }
+            }
+
+            counter_cooldown_gun += 1;
+            if(Math.abs(counter_cooldown_gun - cooldownTimer_gun) <= 0.01f){
+                canShoot = true;
+                counter_cooldown_gun = 0;
+            }
+        }
+
+        else if(status_attacked.equals("attack")){
+            if(cooldownTimer_melee == 0) cooldownTimer_melee = hero.getInventory().getMelee().getCooldown();
+
+            if(hero.getInventory().getGun() == null) return;
+
+            if(distance <= hero.getInventory().getGun().getRange()[0]){
+                hero.attack(direction);
+            }
+
+            counter_cooldown_melee += 1;
+            if(Math.abs(counter_cooldown_melee - cooldownTimer_melee) <= 0.01f){
+                canAttack = true;
+                counter_cooldown_melee = 0;
+            }
         }
     }
 }
