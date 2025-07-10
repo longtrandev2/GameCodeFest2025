@@ -193,6 +193,7 @@ public class PathFinderService {
             return Integer.MAX_VALUE;
     }
 
+
     public static int getDistanceToNearestOtherPlayer(GameMap gameMap, Player player) {
         Player enemy = getNearestOtherPlayer(gameMap, player);
         if(enemy != null)
