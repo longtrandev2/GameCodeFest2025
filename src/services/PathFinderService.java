@@ -26,43 +26,44 @@ public class PathFinderService {
     public static String findPathToNearestGun(GameMap gameMap, Player player, List<Node> nodesToAvoid) {
         Weapon nearestGun = getNearestGun(gameMap, player);
         if (nearestGun == null) return null;
-        return PathUtils.getShortestPath(gameMap, nodesToAvoid, player, nearestGun, false);
+        return PathUtils.getShortestPath(gameMap, nodesToAvoid, player, nearestGun, true);
     }
 
     public static String findPathToNearestWeapon(GameMap gameMap, Player player, List<Node> nodesToAvoid) {
         Weapon nearestWeapon = getNearestWeapon(gameMap, player);
         if (nearestWeapon == null) return null;
-        return PathUtils.getShortestPath(gameMap, nodesToAvoid, player, nearestWeapon, false);
+        return PathUtils.getShortestPath(gameMap, nodesToAvoid, player, nearestWeapon, true);
     }
 
     public static String findPathToSupportItem(GameMap gameMap, Player player, List<Node> nodesToAvoid) {
         SupportItem nearestHealingItem = getNearestSupportItem(gameMap, player);
-        if (nearestHealingItem == null) return null;
-        return PathUtils.getShortestPath(gameMap, nodesToAvoid, player, nearestHealingItem, false);
+
+        if (nearestHealingItem == null ) return null;
+        return PathUtils.getShortestPath(gameMap, nodesToAvoid, player, nearestHealingItem, true);
     }
 
     public static String findPathToNearestOtherPlayer(GameMap gameMap, Player player, List<Node> nodesToAvoid) {
         Player nearestEnemy = getNearestOtherPlayer(gameMap, player);
         if (nearestEnemy == null) return null;
-        return PathUtils.getShortestPath(gameMap, nodesToAvoid, player, nearestEnemy, false);
+        return PathUtils.getShortestPath(gameMap, nodesToAvoid, player, nearestEnemy, true);
     }
 
     public static String findPathToNearestChest(GameMap gameMap, Player player, List<Node> nodesToAvoid) {
         Obstacle nearestChest = getNearestChest(gameMap, player);
         if (nearestChest == null) return null;
-        return PathUtils.getShortestPath(gameMap, nodesToAvoid, player, nearestChest, false);
+        return PathUtils.getShortestPath(gameMap, nodesToAvoid, player, nearestChest, true);
     }
 
     public static String findPathToAroundItem(GameMap gameMap, Player player, List<Node> nodesToAvoid) {
         Element nearestItem = getAroundItem(gameMap, player);
         if (nearestItem == null) return null;
-        return PathUtils.getShortestPath(gameMap, nodesToAvoid, player, nearestItem, false);
+        return PathUtils.getShortestPath(gameMap, nodesToAvoid, player, nearestItem, true);
     }
 
     public static String findPathToNearestArmor(GameMap gameMap, Player player, List<Node> avoid) {
         Armor armor = getNearestArmor(gameMap, player);
         if (armor == null) return null;
-        return PathUtils.getShortestPath(gameMap, avoid, player, armor, false);
+        return PathUtils.getShortestPath(gameMap, avoid, player, armor, true);
     }
 
 

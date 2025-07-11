@@ -208,7 +208,7 @@ public class GameActionHandler {
         }
         Inventory inventory = hero.getInventory();
         // Có súng và có địch -> ưu tiên cao nhất
-        if (hasEnemy && inventory.getGun() != null && distanceToNearestEnemy <= hero.getInventory().getGun().getRange()[1]) {
+        if (hasEnemy && inventory.getGun() != null && distanceToNearestEnemy <= hero.getInventory().getGun().getRange()[1] + 2) {
             return enemyTask.name;
         } // Không thì cứ làm việc gần nhất có thể để kiếm điểm
         else {
@@ -292,7 +292,7 @@ public class GameActionHandler {
 
             hero.revokeItem(inventory.getArmor().getId());
         }
-        else if (type.name().equals(ElementType.HELMET.name()) && inventory.getHelmet() != null) {
+        else if (type.name().equals(ElementType.HELMET.name()) && (inventory.getHelmet() != null )) {
             System.out.println("DROP HELMET");
             System.out.println(inventory.getHelmet());
             hero.revokeItem(inventory.getHelmet().getId());
@@ -313,6 +313,7 @@ public class GameActionHandler {
         }
         else {
             System.out.println("pick up item");
+            System.out.println(element + " "  + type);
             hero.pickupItem();
         }
     }
@@ -338,7 +339,6 @@ public class GameActionHandler {
         String path = PathFinderService.findPathToNearestArmor(gameMap, player, avoid);
         if (path == null) return;
 
-        int distanceToArmor = PathFinderService.getDistanceToNearestArmor(gameMap, player);
         if (path.isEmpty()) {
             swapItem(gameMap, player, hero);
         } else {
@@ -431,7 +431,7 @@ public class GameActionHandler {
             directionNext = pathNext.charAt(pathNext.length()-1) + "";
         }
         System.out.println(direction + " " + directionNext);
-        if(hero.getInventory().getSpecial() != null && (coolDownSpecialReamin == 0f)   && ((hero.getInventory().getSpecial().getId().equals("ROPE") && distanceToEnemy <=6 &&(checkSingleDirection(direction))) || (hero.getInventory().getSpecial().getId().equals("SAHUR_BAT") && distanceToEnemy <= 5 &&(checkSingleDirection(direction))) ||(hero.getInventory().getSpecial().getId().equals("BELL") && distanceToEnemy <= 7 ))){
+        if(hero.getInventory().getSpecial() != null && (coolDownSpecialReamin == 0f)   && ((hero.getInventory().getSpecial().getId().equals("ROPE") && distanceToEnemy <=6 &&(checkSingleDirection(path))) || (hero.getInventory().getSpecial().getId().equals("SAHUR_BAT") && distanceToEnemy <= 5 &&(checkSingleDirection(path))) ||(hero.getInventory().getSpecial().getId().equals("BELL") && distanceToEnemy <= 7 ))){
             Weapon speacialItem = hero.getInventory().getSpecial();
             coolDownSpecialReamin =  speacialItem.getCooldown();
             usedSpecialItems = true;
@@ -453,16 +453,16 @@ public class GameActionHandler {
             canAttack = false;
             System.out.println("ATTACKING ENEMY: " + direction);
         }
-        else if(hero.getInventory().getThrowable() != null  && checkDirectionThrow(gameMap, player, avoid, hero.getInventory().getThrowable())) {
+        else if(hero.getInventory().getThrowable() != null  && checkDirectionThrow(gameMap, player, avoid, hero.getInventory().getThrowable()) && !nextAction.equals("404")) {
             hero.throwItem(directionNext);
         }
-        else if(hero.getInventory().getGun() != null && hero.getInventory().getGun().getRange()[1] >= distanceToEnemyNext && checkSingleDirection(pathNext) && canShoot) {
+        else if(hero.getInventory().getGun() != null && hero.getInventory().getGun().getRange()[1] >= distanceToEnemyNext && checkSingleDirection(pathNext) && canShoot && !nextAction.equals("404")) {
             hero.shoot(directionNext);
             counter_cooldown_gun = 0;
             canShoot = false;
             System.out.println("SHOOTING ENEMY: " + directionNext);
         }
-        else if(distanceToEnemyNext == 1 && canAttack) {
+        else if(distanceToEnemyNext == 1 && canAttack && !nextAction.equals("404")) {
             hero.attack(directionNext);
             counter_cooldown_melee = 0;
             canAttack = false;
@@ -470,19 +470,19 @@ public class GameActionHandler {
         }
         else{
             System.out.println("Move to enemy: " + path);
-//            if(path.length() == 1 && !canAttack){
-//                // FIX SAU
-//                if(direction.equals("d") || direction.equals("u")){
-//                    hero.move("r");
-//                }
-//                else{
-//                    hero.move("u");
-//                }
-//            }
-//            else{
-//                hero.move(path);
-//            }
-            hero.move(path);
+            if(path.length() == 1 && !canAttack){
+                // FIX SAU
+                if(direction.equals("d") || direction.equals("u")){
+                    hero.move("r");
+                }
+                else{
+                    hero.move("u");
+                }
+            }
+            else{
+                hero.move(path);
+            }
+//            hero.move(path);
         }
     }
 
