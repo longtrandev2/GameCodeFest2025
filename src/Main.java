@@ -18,10 +18,9 @@ import java.util.List;
 
 public class Main {
     private static final String SERVER_URL = "https://cf25-server.jsclub.dev";
-    private static final String GAME_ID = "118391";
+    private static final String GAME_ID = "113364";
     private static final String PLAYER_NAME = "<ProPTIT/> Quantum5";
-    private static final String SECRET_KEY = "sk-5cpqGGy9QuyhUHC9F-abfg:ot6VfGZ6ukwEXEJFAiaik2R3nBBppoTRFEtgNLIdxDY83aamgJ2UB9q9LyM6ocRcIg68vtqoXNAbPU023f9-mA";
-
+    private static final String SECRET_KEY = "sk-DUZvyG1bQOGZtVSUtmjPpQ:hN8Gq_jym5F9VsZvIGI6RZ1Zj5-y1ploU5VFP0ZwWnAZxq52QEgms0IVCN45sRQqRWXYuAIHP0phs7e4gp7i0w";
 
 
     public static void main(String[] args) throws IOException {

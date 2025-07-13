@@ -260,7 +260,7 @@ public class GameActionHandler {
          else hero.move(path);
     }
 
-    private void swapItem(GameMap gameMap, Player player, Hero hero) throws IOException {
+    private void  swapItem(GameMap gameMap, Player player, Hero hero) throws IOException {
         Element element = gameMap.getElementByIndex(player.getX(), player.getY());
         ElementType type = element.getType();
         System.out.println("GOT TYPE: " + type.name());
@@ -391,8 +391,10 @@ public class GameActionHandler {
     private void searchForEnemy_v2(GameMap gameMap, Player player, List<Node> avoid) throws IOException {
         System.out.println("NEXT_ACTION: " + nextAction);
 //        if(nextAction.equals("404")) return;
-
-        String path = PathFinderService.findPathToNearestOtherPlayer(gameMap, player, avoid);
+        List<Node> avoidChest = NodeAvoidanceUtil.computeNodesToAvoid(gameMap);
+        avoidChest.addAll(gameMap.getObstaclesByTag("DESTRUCTIBLE"));
+        searchForGun(gameMap, player, avoidChest);
+        String path = PathFinderService.findPathToNearestOtherPlayer(gameMap, player, avoidChest);
         if (path == null || path.isEmpty()) return;
 
         String pathNext = "";
