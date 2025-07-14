@@ -144,6 +144,20 @@ public class PathFinderService {
         return nearest;
     }
 
+    public static Enemy getNearestEnemy(GameMap gameMap, Player player) {
+        Enemy nearestEnemy = null;
+        double minDistance = Double.MAX_VALUE;
+
+        for (Enemy enemy : gameMap.getListEnemies()) {
+            double distance = distance(player, enemy);
+            if (distance < minDistance && PathUtils.checkInsideSafeArea(enemy.getPosition(), gameMap.getSafeZone(), gameMap.getMapSize())) {
+                minDistance = distance;
+                nearestEnemy = enemy;
+            }
+        }
+        return nearestEnemy;
+    }
+
     public static Element getAroundItem(GameMap gameMap, Player player) {
         Element aroundItem = null;
         int x = player.getX();
@@ -197,7 +211,7 @@ public class PathFinderService {
 
     public static int getDistanceToNearestOtherPlayer(GameMap gameMap, Player player) {
         Player enemy = getNearestOtherPlayer(gameMap, player);
-        if(enemy != null)
+        if(enemy != null && enemy.getHealth() > 0)
             return distance(player, getNearestOtherPlayer(gameMap, player));
         else return Integer.MAX_VALUE;
     }

@@ -7,6 +7,7 @@ import jsclub.codefest.sdk.model.Element;
 import jsclub.codefest.sdk.model.ElementType;
 import jsclub.codefest.sdk.model.GameMap;
 import jsclub.codefest.sdk.model.Inventory;
+import jsclub.codefest.sdk.model.npcs.Enemy;
 import jsclub.codefest.sdk.model.obstacles.Obstacle;
 import jsclub.codefest.sdk.model.players.Player;
 import jsclub.codefest.sdk.model.support_items.SupportItem;
@@ -60,6 +61,9 @@ public class GameActionHandler {
 
     private static Boolean usedSpecialItems = false;
     //end
+
+    // config time
+    private static final int timeAvoid = 480; // 1080
 
     public enum TaskType {
         GUN,
@@ -152,7 +156,7 @@ public class GameActionHandler {
             }
             else if (action == TaskType.ENEMY) {
                 if(player.getHealth() > 20) searchForEnemy_v2(gameMap, player, avoid);
-                else avoidOtherPlayer_v1(gameMap, player, avoid);
+                else avoidOtherPlayer_v2(gameMap, player, avoid);
             }
             else if (action == TaskType.ARMOR) {
                 searchForArmorOrHelmet(gameMap, player, avoid);
@@ -186,12 +190,19 @@ public class GameActionHandler {
         PriorityTask chestTask = new PriorityTask(TaskType.CHEST, 4, distanceToNearestChest);
         PriorityTask weaponTask = new PriorityTask(TaskType.WEAPON, 4, distanceToNearestWeapon);
         PriorityTask supportItemTask = new PriorityTask(TaskType.SUPPORT_ITEM, 4, distanceToSupportItem);
+
         List<PriorityTask> tasks = new ArrayList<>();
         tasks.add(gunTask);
         tasks.add(chestTask);
         tasks.add(armorTask);
         tasks.add(weaponTask);
         tasks.add(supportItemTask);
+
+        if(gameMap.getStepNumber() >= timeAvoid){ //1080
+            PriorityTask runTask = new PriorityTask(TaskType.RUN, 15, distanceToNearestEnemy);
+            tasks.add(runTask);
+        }
+
         if (hasEnemy) tasks.add(enemyTask);
         tasks.sort(new Comparator<PriorityTask>() {
             @Override
@@ -208,9 +219,14 @@ public class GameActionHandler {
         }
         Inventory inventory = hero.getInventory();
         // Có súng và có địch -> ưu tiên cao nhất
-        if (hasEnemy && inventory.getGun() != null && distanceToNearestEnemy <= hero.getInventory().getGun().getRange()[1] + 2) {
+
+        if (hasEnemy && inventory.getGun() != null && distanceToNearestEnemy <= hero.getInventory().getGun().getRange()[1] / 1.5f && gameMap.getStepNumber() >= timeAvoid) { //1080
             return enemyTask.name;
-        } // Không thì cứ làm việc gần nhất có thể để kiếm điểm
+        }
+        else if(hasEnemy && inventory.getGun() != null && distanceToNearestEnemy <= hero.getInventory().getGun().getRange()[1] * 1.5f && gameMap.getStepNumber() < timeAvoid){
+            return enemyTask.name;
+        }
+        // Không thì cứ làm việc gần nhất có thể để kiếm điểm
         else {
             return tasks.getFirst().name;
         }
@@ -227,7 +243,9 @@ public class GameActionHandler {
             swapItem(gameMap, player, hero);
             isPickupGun = true;
         }
-        else hero.move(path);
+        else {
+            hero.move(path);
+        }
     }
 
     private void searchForSupportItem(GameMap gameMap, Player player, List<Node> avoid) throws IOException {
@@ -257,7 +275,9 @@ public class GameActionHandler {
             hero.shoot(direction);
             else if(distanceToEnemy == 1)
                 hero.attack(direction);
-         else hero.move(path);
+         else {
+            hero.move(path);
+        }
     }
 
     private void  swapItem(GameMap gameMap, Player player, Hero hero) throws IOException {
@@ -272,8 +292,10 @@ public class GameActionHandler {
         Inventory inventory = hero.getInventory();
 
         if (type.name().equals(ElementType.MELEE.name()) && !inventory.getMelee().getId().equals("HAND")) {
-            System.out.println("DROP MELEE");
-            hero.revokeItem(inventory.getMelee().getId());
+            if(element.getId().equals("TREE_BRANCH")){
+                System.out.println("DROP MELEE");
+                hero.revokeItem(inventory.getMelee().getId());
+            }
         } else
         if (type.name().equals(ElementType.GUN.name()) && inventory.getGun() != null ) {
             System.out.println("DROP GUN");
@@ -332,7 +354,9 @@ public class GameActionHandler {
         if (distanceToChest == 1) {
             hero.attack(path.charAt(path.length() - 1) + "");
         }
-        else hero.move(path);
+        else {
+            hero.move(path);
+        }
     }
 
     private void searchForArmorOrHelmet(GameMap gameMap, Player player, List<Node> avoid) throws IOException {
@@ -783,7 +807,49 @@ public class GameActionHandler {
         }
     }
 
+    public void avoidOtherPlayer_v2(GameMap gameMap, Player player, List<Node> avoid) throws IOException {
+        System.out.println("RUN!!!!");
+        String path = PathFinderService.findPathToNearestOtherPlayer(gameMap, player, avoid);
+        Player enemy = PathFinderService.getNearestOtherPlayer(gameMap, player);
+        if (path == null || path.isEmpty()) return;
 
+        Node leftNode = new Node(player.getX() - 1, player.getY());
+        Node rightNode = new Node(player.getX() + 1, player.getY());
+        Node upNode = new Node(player.getX(), player.getY() + 1);
+        Node downNode = new Node(player.getX(), player.getY() - 1);
+
+        double leftScore = 0;
+        double rightScore = 0;
+        double upScore = 0;
+        double downScore = 0;
+
+        if(!avoid.contains(leftNode)) {
+            leftScore = Math.sqrt(Math.pow(leftNode.x - enemy.getX(), 2) + Math.pow(leftNode.y - enemy.getY(), 2));
+        }
+        if(!avoid.contains(rightNode)){
+            rightScore = Math.sqrt(Math.pow(rightNode.x - enemy.getX(), 2) + Math.pow(rightNode.y - enemy.getY(), 2));
+        }
+        if(!avoid.contains(upNode)) {
+            upScore = Math.sqrt(Math.pow(upNode.x - enemy.getX(), 2) + Math.pow(upNode.y - enemy.getY(), 2));
+        }
+        if(!avoid.contains(downNode)) {
+            downScore = Math.sqrt(Math.pow(downNode.x - enemy.getX(), 2) + Math.pow(downNode.y - enemy.getY(), 2));
+        }
+
+        double maxScore = Math.max(Math.max(leftScore, rightScore), Math.max(upScore, downScore));
+
+        if(Math.abs(maxScore - leftScore) <= 0.01 && !avoid.contains(leftNode)) {
+            hero.move("l");
+        } else if(Math.abs(maxScore - rightScore) <= 0.01 && !avoid.contains(rightNode)) {
+            hero.move("r");
+        } else if(Math.abs(maxScore - upScore) <= 0.01 && !avoid.contains(upNode)) {
+            hero.move("u");
+        } else if(Math.abs(maxScore - downScore) <= 0.01 && !avoid.contains(downNode)) {
+            hero.move("d");
+        } else {
+            System.out.println("No valid move found, staying in place.");
+        }
+    }
 
     public void attackingStatus(GameMap gameMap, Player player, List<Node> avoid) throws IOException {
         System.out.println("-----------------------");
@@ -817,25 +883,5 @@ public class GameActionHandler {
         else canAttack = false;
 
         System.out.println("STATUS: " + canShoot + " " + canAttack);
-
-
-        if(!canShoot && !canAttack){
-            String path = PathFinderService.findPathToNearestOtherPlayer(gameMap, player, avoid);
-            String direction = path.charAt(path.length()-1) + "";
-            int distance = path.length();
-
-//            if(distance == 1 || hero.getInventory().getMelee() == null){
-//                // FIX SAU
-//                if(direction.equals("d") || direction.equals("u")){
-//                    hero.move("r");
-//                }
-//                else{
-//                    hero.move("u");
-//                }
-//            }
-//            else{
-//                hero.move(direction);
-//            }
-        }
     }
 }
