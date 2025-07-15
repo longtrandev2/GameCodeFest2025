@@ -10,6 +10,7 @@ public class NodeAvoidanceUtil {
     public static List<Node> computeNodesToAvoid(GameMap gameMap) {
         List<Node> nodes = new ArrayList<>(gameMap.getListIndestructibles());
 //        nodes.addAll(gameMap.getListTraps());
+        nodes.removeAll(gameMap.getObstaclesByTag("CAN_GO_THROUGH"));
         nodes.addAll(gameMap.getObstaclesByTag("TRAP"));
         nodes.addAll(gameMap.getOtherPlayerInfo());
         nodes.addAll(gameMap.getListEnemies());

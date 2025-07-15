@@ -14,23 +14,23 @@ import jsclub.codefest.sdk.model.support_items.SupportItem;
 import jsclub.codefest.sdk.model.weapon.Weapon;
 import jsclub.codefest.sdk.socket.data.receive_data.ItemData;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
+import java.util.*;
 import static jsclub.codefest.sdk.algorithm.PathUtils.distance;
 
 public class PathFinderService {
+
+    static int[] dx = {0, 0, 1, -1};
+    static int[] dy = {1,-1,0,0};
+
     public static Map<String, Node> mp = new HashMap<String, Node>() ;
-    public static String findPathToNearestGun(GameMap gameMap, Player player, List<Node> nodesToAvoid) {
-        Weapon nearestGun = getNearestGun(gameMap, player);
+    public static String findPathToNearestGun(GameMap gameMap, Player player, List<Node> nodesToAvoid, String gunException) {
+        Weapon nearestGun = getNearestGun(gameMap, player, gunException);
         if (nearestGun == null) return null;
         return PathUtils.getShortestPath(gameMap, nodesToAvoid, player, nearestGun, true);
     }
 
-    public static String findPathToNearestWeapon(GameMap gameMap, Player player, List<Node> nodesToAvoid) {
-        Weapon nearestWeapon = getNearestWeapon(gameMap, player);
+    public static String findPathToNearestWeapon(GameMap gameMap, Player player, List<Node> nodesToAvoid, String meleeException) {
+        Weapon nearestWeapon = getNearestWeapon(gameMap, player, meleeException);
         if (nearestWeapon == null) return null;
         return PathUtils.getShortestPath(gameMap, nodesToAvoid, player, nearestWeapon, true);
     }
@@ -60,15 +60,67 @@ public class PathFinderService {
         return PathUtils.getShortestPath(gameMap, nodesToAvoid, player, nearestItem, true);
     }
 
-    public static String findPathToNearestArmor(GameMap gameMap, Player player, List<Node> avoid) {
-        Armor armor = getNearestArmor(gameMap, player);
+    public static String findPathToNearestArmor(GameMap gameMap, Player player, List<Node> avoid, ArrayList<String> exceptions) {
+        Armor armor = getNearestArmor(gameMap, player, exceptions);
         if (armor == null) return null;
         return PathUtils.getShortestPath(gameMap, avoid, player, armor, true);
     }
 
+    public static boolean checkIsObstacle(Node x, GameMap gameMap) {
+        Element e = gameMap.getElementByIndex(x.x, x.y);
+        ElementType type = e.getType();
+        return type == ElementType.CHEST || type == ElementType.TRAP || type == ElementType.INDESTRUCTIBLE;
+    }
+
+    public static Node loang(int[][] a, GameMap gameMap, int x, int y, int safeZone, int mapSize) {
+        boolean[][] visited = new boolean[mapSize+1][mapSize+1];
+        Queue<int[]> queue = new LinkedList<>();
+
+        queue.offer(new int[]{x, y});
+        visited[x][y] = true;
+
+        while (!queue.isEmpty()) {
+            int[] current = queue.poll();
+            int x1 = current[0], y1 = current[1];
+            Node node1 = new Node(x1,y1);
+            if (PathUtils.checkInsideSafeArea(node1, safeZone, mapSize) && !checkIsObstacle(node1, gameMap)) {
+                return node1;
+            }
+
+            for (int k = 0; k < 4; k++) {
+                int nx = x1 + dx[k];
+                int ny = y1 + dy[k];
+                Node newNode = new Node(nx, ny);
+                if (nx >= 0 && ny >= 0 && nx < mapSize && ny < mapSize &&
+                        !visited[nx][ny] && !checkIsObstacle(newNode, gameMap)) {
+                    visited[nx][ny] = true;
+                    queue.offer(new int[]{nx, ny});
+                }
+            }
+        }
+
+        return null; // Không tìm thấy safezone
+    }
 
 
-    public static Weapon getNearestWeapon(GameMap gameMap, Player player) {
+
+    public static String getPathToNearestNodeInsideSafeZone(GameMap gameMap, Player player, List<Node> avoid) {
+        int[][] a = new int[105][105];
+        Node currentPlayerPosition = player.getPosition();
+        a[currentPlayerPosition.x][currentPlayerPosition.y] = 1;
+        Node safeZoneNode = loang(a, gameMap, currentPlayerPosition.x, currentPlayerPosition.y, gameMap.getSafeZone(), gameMap.getMapSize());
+        System.out.println("tọa độ" + " " + safeZoneNode.getX() + " " + safeZoneNode.getY());
+        String shortestPathToSafeZone = "";
+        if (safeZoneNode == null) {
+            System.out.println("PATH BY LOANG NOT FOUND");
+            shortestPathToSafeZone = PathUtils.getShortestPath(gameMap, avoid, player, getNearestOtherPlayer(gameMap, player), true);
+        } else {
+            shortestPathToSafeZone = PathUtils.getShortestPath(gameMap, avoid, player, safeZoneNode, true);
+        }
+        return shortestPathToSafeZone;
+    }
+
+    public static Weapon getNearestWeapon(GameMap gameMap, Player player, String meleeExcetion) {
         List<Weapon> weapons = gameMap.getListWeapons();
         Weapon nearestWeapon = null;
         double minDistance = Double.MAX_VALUE;
@@ -76,7 +128,7 @@ public class PathFinderService {
         for (Weapon weapon : weapons) {
             if(weapon.getType().name() != ElementType.GUN.name()) {
                 double distance = distance(player, weapon);
-                if (distance < minDistance && PathUtils.checkInsideSafeArea(weapon.getPosition(), gameMap.getSafeZone(), gameMap.getMapSize())) {
+                if (distance < minDistance && PathUtils.checkInsideSafeArea(weapon.getPosition(), gameMap.getSafeZone(), gameMap.getMapSize()) && !weapon.getId().equals(meleeExcetion)) {
                     minDistance = distance;
                     nearestWeapon = weapon;
                 }
@@ -85,14 +137,14 @@ public class PathFinderService {
         return nearestWeapon;
     }
 
-    private static SupportItem getNearestSupportItem  (GameMap gameMap, Player player) {
+    public static SupportItem getNearestSupportItem  (GameMap gameMap, Player player) {
         List<SupportItem> SupportItems = gameMap.getListSupportItems();
         SupportItem nearestSupportItem = null;
         double minDistance = Double.MAX_VALUE;
 
         for (SupportItem SupportItem : SupportItems) {
             double distance = distance(player, SupportItem);
-            if (distance < minDistance) {
+            if (distance < minDistance && PathUtils.checkInsideSafeArea(SupportItem.getPosition(), gameMap.getSafeZone(), gameMap.getMapSize()) ) {
                 minDistance = distance;
                 nearestSupportItem = SupportItem;
             }
@@ -100,14 +152,14 @@ public class PathFinderService {
         return nearestSupportItem;
     }
 
-    public static Weapon getNearestGun(GameMap gameMap, Player player) {
+    public static Weapon getNearestGun(GameMap gameMap, Player player, String gunException) {
         List<Weapon> guns = gameMap.getAllGun();
         Weapon nearestGun = null;
         double minDistance = Double.MAX_VALUE;
 
         for (Weapon gun : guns) {
             double distance = distance(player, gun);
-            if (distance < minDistance && PathUtils.checkInsideSafeArea(gun.getPosition(), gameMap.getSafeZone(), gameMap.getMapSize())) {
+            if (distance < minDistance && PathUtils.checkInsideSafeArea(gun.getPosition(), gameMap.getSafeZone(), gameMap.getMapSize()) && !gun.getId().equals(gunException)) {
                 minDistance = distance;
                 nearestGun = gun;
             }
@@ -179,12 +231,12 @@ public class PathFinderService {
         return null;
     }
 
-    public static Armor getNearestArmor(GameMap gameMap, Player player) {
+    public static Armor getNearestArmor(GameMap gameMap, Player player, ArrayList<String> exceptions) {
         Armor armor = null;
         double minDist = Double.MAX_VALUE;
         for (Armor a : gameMap.getListArmors()) {
             double d = distance(player, a);
-            if (d < minDist && PathUtils.checkInsideSafeArea(a.getPosition(), gameMap.getSafeZone(), gameMap.getMapSize())) {
+            if (d < minDist && PathUtils.checkInsideSafeArea(a.getPosition(), gameMap.getSafeZone(), gameMap.getMapSize()) && !exceptions.contains(a.getId())) {
                 minDist = d;
                 armor = a;
             }
@@ -192,18 +244,18 @@ public class PathFinderService {
         return armor;
     }
 
-    public static int getDistanceToNearestWeapon(GameMap gameMap, Player player) {
-        Weapon weapon = getNearestWeapon(gameMap, player);
+    public static int getDistanceToNearestWeapon(GameMap gameMap, Player player, String meleeException, List<Node> avoid) {
+        Weapon weapon = getNearestWeapon(gameMap, player, meleeException);
         if(weapon != null)
-            return distance(player, getNearestWeapon(gameMap, player));
+            return PathUtils.getShortestPath(gameMap, avoid, player, weapon, true).length();
         else
             return Integer.MAX_VALUE;
     }
 
-    public static int getDistanceToNearestArmor(GameMap gameMap, Player player) {
-        Armor armor = getNearestArmor(gameMap, player);
+    public static int getDistanceToNearestArmor(GameMap gameMap, Player player, ArrayList<String> exception, List<Node> avoid) {
+        Armor armor = getNearestArmor(gameMap, player, exception);
         if(armor != null)
-            return distance(player, getNearestArmor(gameMap, player));
+            return PathUtils.getShortestPath(gameMap, avoid, player, armor, true).length();
         else
             return Integer.MAX_VALUE;
     }
@@ -212,15 +264,16 @@ public class PathFinderService {
     public static int getDistanceToNearestOtherPlayer(GameMap gameMap, Player player) {
         Player enemy = getNearestOtherPlayer(gameMap, player);
         if(enemy != null && enemy.getHealth() > 0)
-            return distance(player, getNearestOtherPlayer(gameMap, player));
+            return distance(player, enemy);
         else return Integer.MAX_VALUE;
     }
 
-    public static int getDistanceToNearestGun(GameMap gameMap, Player player) {
-        Weapon gun = getNearestGun(gameMap, player);
-        if(gun != null) return distance(player, getNearestGun(gameMap, player));
+    public static int getDistanceToNearestGun(GameMap gameMap, Player player, String gunException, List<Node> avoid) {
+        Weapon gun = getNearestGun(gameMap, player, gunException);
+        if(gun != null) return  PathUtils.getShortestPath(gameMap, avoid, player, gun, true).length();
         else return Integer.MAX_VALUE;
     }
+
     public static int getDistanceToNearestChest(GameMap gameMap, Player player) {
         Obstacle chest = getNearestChest(gameMap, player);
         if(chest != null)
